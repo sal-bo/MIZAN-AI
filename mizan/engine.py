@@ -27,6 +27,8 @@ EVENT_TYPES = {
     "cotisation":            {"label": "Cotisation",            "ca": False, "charge": False, "cash": "entree",  "creance": 0,  "dette": 0},
     "subvention":            {"label": "Subvention",            "ca": False, "charge": False, "cash": "entree",  "creance": 0,  "dette": 0},
     "versement_fournisseur": {"label": "Paiement fournisseur",  "ca": False, "charge": False, "cash": "sortie",  "creance": 0,  "dette": -1},
+    # une note audio ne touche à aucun chiffre : elle est juste conservée
+    "note":                  {"label": "Note audio",             "ca": False, "charge": False, "cash": 0,        "creance": 0,  "dette": 0},
 }
 
 # Types autorisés selon le type de profil
@@ -185,3 +187,42 @@ def formater(montant):
     if montant is None:
         return "—"
     return f"{montant:,.0f}".replace(",", " ") + " dh"
+
+
+# ---------------------------------------------------------------------------
+# Agrégats pour les graphiques
+# ---------------------------------------------------------------------------
+def ca_par_jour(events):
+    """Retourne {date: chiffre d'affaires} trié par date."""
+    resultat = {}
+    for ev in events:
+        if EVENT_TYPES.get(ev.get("type"), {}).get("ca") and ev.get("montant"):
+            jour = ev.get("date")
+            resultat[jour] = resultat.get(jour, 0.0) + ev["montant"]
+    return dict(sorted(resultat.items()))
+
+
+LABELS_CATEGORIES = {
+    "loyer": "Loyer",
+    "electricite": "Électricité",
+    "eau": "Eau",
+    "salaire": "Salaires",
+    "transport": "Transport",
+    "farine": "Farine",
+    "sucre": "Sucre",
+    "huile": "Huile",
+    "the": "Thé",
+    "lait": "Lait",
+    "divers": "Divers",
+}
+
+
+def charges_par_categorie(events):
+    """Retourne {catégorie: montant} des dépenses et achats, du plus grand au plus petit."""
+    resultat = {}
+    for ev in events:
+        if EVENT_TYPES.get(ev.get("type"), {}).get("charge") and ev.get("montant"):
+            cat = (ev.get("categorie") or "divers").lower()
+            label = LABELS_CATEGORIES.get(cat, cat.capitalize())
+            resultat[label] = resultat.get(label, 0.0) + ev["montant"]
+    return dict(sorted(resultat.items(), key=lambda x: -x[1]))

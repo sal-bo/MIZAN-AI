@@ -72,6 +72,20 @@ def init_db():
         """
     )
 
+    # 4) Les notes audio (stockées dans la base pour ne pas être perdues)
+    c.execute(
+        """
+        CREATE TABLE IF NOT EXISTS audios (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            profile_id  INTEGER NOT NULL,
+            nom         TEXT,
+            donnees     BLOB NOT NULL,
+            cree_le     TEXT,
+            FOREIGN KEY (profile_id) REFERENCES profiles (id)
+        )
+        """
+    )
+
     conn.commit()
     return conn
 
@@ -157,4 +171,38 @@ def repondre_question(conn, question_id, reponse):
     conn.execute(
         "UPDATE questions SET reponse = ? WHERE id = ?", (str(reponse), question_id)
     )
+    conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# Notes audio
+# ---------------------------------------------------------------------------
+def ajouter_audio(conn, profil_id, nom, donnees):
+    """Enregistre un audio dans la base et retourne son identifiant."""
+    cur = conn.execute(
+        "INSERT INTO audios (profile_id, nom, donnees, cree_le) VALUES (?, ?, ?, ?)",
+        (profil_id, nom, donnees, datetime.now().isoformat(timespec="seconds")),
+    )
+    conn.commit()
+    return cur.lastrowid
+
+
+def lister_audios(conn, profil_id):
+    """Liste les audios sans charger leur contenu (seulement la taille)."""
+    rows = conn.execute(
+        "SELECT id, nom, cree_le, length(donnees) AS taille "
+        "FROM audios WHERE profile_id = ? ORDER BY id DESC",
+        (profil_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def obtenir_audio(conn, audio_id):
+    """Retourne l'audio complet (avec ses données binaires)."""
+    row = conn.execute("SELECT * FROM audios WHERE id = ?", (audio_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def supprimer_audio(conn, audio_id):
+    conn.execute("DELETE FROM audios WHERE id = ?", (audio_id,))
     conn.commit()
